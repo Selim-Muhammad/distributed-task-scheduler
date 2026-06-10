@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: scheduler-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: scheduler
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    container_name: scheduler-redis
+    ports:
+      - "6379:6379"
