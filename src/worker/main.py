@@ -1,6 +1,7 @@
 import random
 import time
 
+
 from src.api.db.database import SessionLocal
 from src.api.models.task import Task
 from src.api.queue.redis_client import redis_client
@@ -12,9 +13,11 @@ def execute_task(task: Task):
     time.sleep(2)
 
     if random.random() < 0.3:
-        raise Exception("Simulated task failure")
-
+       raise Exception("Simulated task failure")
+    
     print(f"Worker completed task {task.id}")
+
+    
 
 
 def release_lease(task_id: str):
