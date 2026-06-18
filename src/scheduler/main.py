@@ -5,7 +5,25 @@ from src.api.models.task import Task
 from src.api.queue.redis_client import redis_client
 
 
+LEASE_TTL_SECONDS = 30
+
+
+def acquire_lease(task_id: str) -> bool:
+    return redis_client.set(
+        name=f"lease:{task_id}",
+        value="LOCKED",
+        nx=True,
+        ex=LEASE_TTL_SECONDS
+    )
+
+
 def dispatch_task(task_id: str, priority: float):
+    lease_acquired = acquire_lease(task_id)
+
+    if not lease_acquired:
+        print(f"Could not acquire lease for task {task_id}")
+        return
+
     db = SessionLocal()
 
     try:
