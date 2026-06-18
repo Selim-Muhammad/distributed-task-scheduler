@@ -9,3 +9,5 @@ class Task(Base):
     task_type = Column(String, nullable=False)
     priority = Column(Integer, default=5)
     status = Column(String, default="PENDING")
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)

@@ -1,3 +1,4 @@
+import random
 import time
 
 from src.api.db.database import SessionLocal
@@ -10,11 +11,21 @@ def execute_task(task: Task):
 
     time.sleep(2)
 
+    if random.random() < 0.3:
+        raise Exception("Simulated task failure")
+
     print(f"Worker completed task {task.id}")
 
 
 def release_lease(task_id: str):
     redis_client.delete(f"lease:{task_id}")
+
+
+def requeue_task(task: Task):
+    redis_client.zadd(
+        "task_queue",
+        {task.id: task.priority}
+    )
 
 
 def run_worker():
@@ -31,12 +42,39 @@ def run_worker():
             )
 
             if task:
-                execute_task(task)
+                try:
+                    execute_task(task)
 
-                task.status = "COMPLETED"
-                db.commit()
+                    task.status = "COMPLETED"
+                    db.commit()
 
-                release_lease(task.id)
+                    release_lease(task.id)
+
+                except Exception as error:
+                    task.retry_count += 1
+
+                    if task.retry_count <= task.max_retries:
+                        task.status = "PENDING"
+                        db.commit()
+
+                        release_lease(task.id)
+                        requeue_task(task)
+
+                        print(
+                            f"Task {task.id} failed. "
+                            f"Retrying ({task.retry_count}/{task.max_retries})"
+                        )
+
+                    else:
+                        task.status = "DEAD"
+                        db.commit()
+
+                        release_lease(task.id)
+
+                        print(
+                            f"Task {task.id} moved to DEAD. "
+                            f"Reason: {error}"
+                        )
 
             db.close()
 

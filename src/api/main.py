@@ -36,11 +36,13 @@ def health_check():
 @app.post("/tasks", response_model=TaskResponse)
 def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     new_task = Task(
-        id=str(uuid.uuid4()),
-        task_type=task.task_type,
-        priority=task.priority,
-        status="PENDING"
-    )
+    id=str(uuid.uuid4()),
+    task_type=task.task_type,
+    priority=task.priority,
+    status="PENDING",
+    retry_count=0,
+    max_retries=task.max_retries
+)
 
     # Save task to PostgreSQL
     db.add(new_task)
