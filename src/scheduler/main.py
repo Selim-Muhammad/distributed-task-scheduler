@@ -1,19 +1,45 @@
 import time
 
+from src.api.db.database import SessionLocal
+from src.api.models.task import Task
 from src.api.queue.redis_client import redis_client
 
 
-print("Scheduler started...")
+def dispatch_task(task_id: str, priority: float):
+    db = SessionLocal()
 
-while True:
-    task = redis_client.zpopmax("task_queue")
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
 
-    if task:
-        task_id, priority = task[0]
+        if task is None:
+            print(f"Task {task_id} not found in database")
+            return
 
-        print(
-            f"Dispatching task {task_id} "
-            f"(priority={priority})"
-        )
+        task.status = "RUNNING"
+        db.commit()
 
-    time.sleep(1)
+        print(f"Dispatching task {task_id} (priority={priority})")
+
+    finally:
+        db.close()
+
+
+def run_scheduler():
+    print("Scheduler started...")
+
+    try:
+        while True:
+            task = redis_client.zpopmax("task_queue")
+
+            if task:
+                task_id, priority = task[0]
+                dispatch_task(task_id, priority)
+
+            time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        print("\nScheduler stopped gracefully.")
+
+
+if __name__ == "__main__":
+    run_scheduler()
