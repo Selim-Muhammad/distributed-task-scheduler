@@ -30,6 +30,10 @@ def acquire_lease(task_id: str) -> bool:
     )
 
 
+def select_worker(alive_workers):
+    return alive_workers[0]
+
+
 def dispatch_task(task_id: str, priority: float):
     alive_workers = get_alive_workers()
 
@@ -44,7 +48,8 @@ def dispatch_task(task_id: str, priority: float):
         print(f"Could not acquire lease for task {task_id}")
         return
 
-    selected_worker = alive_workers[0]
+    selected_worker = select_worker(alive_workers)
+    worker_id = selected_worker.get("worker_id")
 
     db = SessionLocal()
 
@@ -58,10 +63,15 @@ def dispatch_task(task_id: str, priority: float):
         task.status = "RUNNING"
         db.commit()
 
+        redis_client.rpush(
+            f"worker_queue:{worker_id}",
+            task_id
+        )
+
         print(
-            f"Dispatching task {task_id} "
+            f"Dispatched task {task_id} "
             f"(priority={priority}) "
-            f"to worker {selected_worker.get('worker_id')}"
+            f"to worker {worker_id}"
         )
 
     finally:

@@ -62,6 +62,60 @@ def requeue_task(task: Task):
     )
 
 
+def get_next_assigned_task_id():
+    task_id = redis_client.lpop(f"worker_queue:{WORKER_ID}")
+    return task_id
+
+
+def process_task(task_id: str):
+    db = SessionLocal()
+
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+
+        if task is None:
+            print(f"Task {task_id} not found in database")
+            release_lease(task_id)
+            return
+
+        try:
+            execute_task(task)
+
+            task.status = "COMPLETED"
+            db.commit()
+
+            release_lease(task.id)
+
+        except Exception as error:
+            task.retry_count += 1
+
+            if task.retry_count <= task.max_retries:
+                task.status = "PENDING"
+                db.commit()
+
+                release_lease(task.id)
+                requeue_task(task)
+
+                print(
+                    f"Task {task.id} failed. "
+                    f"Retrying ({task.retry_count}/{task.max_retries})"
+                )
+
+            else:
+                task.status = "DEAD"
+                db.commit()
+
+                release_lease(task.id)
+
+                print(
+                    f"Task {task.id} moved to DEAD. "
+                    f"Reason: {error}"
+                )
+
+    finally:
+        db.close()
+
+
 def run_worker():
     print("Worker started...")
     register_worker()
@@ -70,55 +124,16 @@ def run_worker():
         while True:
             send_heartbeat()
 
-            db = SessionLocal()
+            task_id = get_next_assigned_task_id()
 
-            task = (
-                db.query(Task)
-                .filter(Task.status == "RUNNING")
-                .first()
-            )
+            if task_id:
+                process_task(task_id)
 
-            if task:
-                try:
-                    execute_task(task)
-
-                    task.status = "COMPLETED"
-                    db.commit()
-
-                    release_lease(task.id)
-
-                except Exception as error:
-                    task.retry_count += 1
-
-                    if task.retry_count <= task.max_retries:
-                        task.status = "PENDING"
-                        db.commit()
-
-                        release_lease(task.id)
-                        requeue_task(task)
-
-                        print(
-                            f"Task {task.id} failed. "
-                            f"Retrying ({task.retry_count}/{task.max_retries})"
-                        )
-
-                    else:
-                        task.status = "DEAD"
-                        db.commit()
-
-                        release_lease(task.id)
-
-                        print(
-                            f"Task {task.id} moved to DEAD. "
-                            f"Reason: {error}"
-                        )
-
-            db.close()
-
-            time.sleep(1)
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         redis_client.delete(f"worker:{WORKER_ID}")
+        redis_client.delete(f"worker_queue:{WORKER_ID}")
         print("\nWorker stopped gracefully.")
 
 
