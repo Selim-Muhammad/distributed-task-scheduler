@@ -81,3 +81,45 @@ def get_workers():
         "workers": workers,
         "count": len(workers)
     }
+
+
+@app.get("/stats")
+def get_stats(db: Session = Depends(get_db)):
+    queue_depth = redis_client.zcard("task_queue")
+
+    alive_workers = len(
+        redis_client.keys("worker:*")
+    )
+
+    completed_tasks = (
+        db.query(Task)
+        .filter(Task.status == "COMPLETED")
+        .count()
+    )
+
+    pending_tasks = (
+        db.query(Task)
+        .filter(Task.status == "PENDING")
+        .count()
+    )
+
+    running_tasks = (
+        db.query(Task)
+        .filter(Task.status == "RUNNING")
+        .count()
+    )
+
+    dead_tasks = (
+        db.query(Task)
+        .filter(Task.status == "DEAD")
+        .count()
+    )
+
+    return {
+        "queue_depth": queue_depth,
+        "alive_workers": alive_workers,
+        "completed_tasks": completed_tasks,
+        "pending_tasks": pending_tasks,
+        "running_tasks": running_tasks,
+        "dead_tasks": dead_tasks
+    }
