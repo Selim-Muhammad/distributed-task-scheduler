@@ -1,10 +1,43 @@
 import random
+import socket
 import time
-
+import uuid
 
 from src.api.db.database import SessionLocal
 from src.api.models.task import Task
 from src.api.queue.redis_client import redis_client
+
+
+WORKER_ID = f"{socket.gethostname()}-{uuid.uuid4()}"
+HEARTBEAT_TTL_SECONDS = 10
+
+
+def register_worker():
+    redis_client.hset(
+        f"worker:{WORKER_ID}",
+        mapping={
+            "worker_id": WORKER_ID,
+            "hostname": socket.gethostname(),
+            "status": "ALIVE",
+            "last_seen": time.time()
+        }
+    )
+
+    redis_client.expire(f"worker:{WORKER_ID}", HEARTBEAT_TTL_SECONDS)
+
+    print(f"Worker registered: {WORKER_ID}")
+
+
+def send_heartbeat():
+    redis_client.hset(
+        f"worker:{WORKER_ID}",
+        mapping={
+            "status": "ALIVE",
+            "last_seen": time.time()
+        }
+    )
+
+    redis_client.expire(f"worker:{WORKER_ID}", HEARTBEAT_TTL_SECONDS)
 
 
 def execute_task(task: Task):
@@ -13,11 +46,9 @@ def execute_task(task: Task):
     time.sleep(2)
 
     if random.random() < 0.3:
-       raise Exception("Simulated task failure")
-    
-    print(f"Worker completed task {task.id}")
+        raise Exception("Simulated task failure")
 
-    
+    print(f"Worker completed task {task.id}")
 
 
 def release_lease(task_id: str):
@@ -33,9 +64,12 @@ def requeue_task(task: Task):
 
 def run_worker():
     print("Worker started...")
+    register_worker()
 
     try:
         while True:
+            send_heartbeat()
+
             db = SessionLocal()
 
             task = (
@@ -84,6 +118,7 @@ def run_worker():
             time.sleep(1)
 
     except KeyboardInterrupt:
+        redis_client.delete(f"worker:{WORKER_ID}")
         print("\nWorker stopped gracefully.")
 
 
