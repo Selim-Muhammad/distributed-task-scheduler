@@ -31,7 +31,9 @@ def acquire_lease(task_id: str) -> bool:
 
 
 def select_worker(alive_workers):
-    return alive_workers[0]
+    selected_index = redis_client.incr("scheduler:round_robin_counter")
+    worker_index = selected_index % len(alive_workers)
+    return alive_workers[worker_index]
 
 
 def dispatch_task(task_id: str, priority: float):
