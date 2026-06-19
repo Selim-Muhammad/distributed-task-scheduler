@@ -67,3 +67,17 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
 
     return task
+
+@app.get("/workers")
+def get_workers():
+    worker_keys = redis_client.keys("worker:*")
+    workers = []
+
+    for key in worker_keys:
+        worker = redis_client.hgetall(key)
+        workers.append(worker)
+
+    return {
+        "workers": workers,
+        "count": len(workers)
+    }
