@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Distributed Task Scheduler Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
+        .metric {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Distributed Task Scheduler Dashboard</h1>
+
+<div class="card">
+    <h2>System Statistics</h2>
+
+    <p>Queue Depth: <span id="queueDepth" class="metric">-</span></p>
+    <p>Alive Workers: <span id="aliveWorkers" class="metric">-</span></p>
+    <p>Completed Tasks: <span id="completedTasks" class="metric">-</span></p>
+    <p>Pending Tasks: <span id="pendingTasks" class="metric">-</span></p>
+    <p>Running Tasks: <span id="runningTasks" class="metric">-</span></p>
+    <p>Dead Tasks: <span id="deadTasks" class="metric">-</span></p>
+</div>
+
+<div class="card">
+    <h2>Workers</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Worker ID</th>
+                <th>Hostname</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody id="workerTable">
+        </tbody>
+    </table>
+</div>
+
+<script>
+
+async function loadStats() {
+
+    const response =
+        await fetch("http://127.0.0.1:8000/stats");
+
+    const data = await response.json();
+
+    document.getElementById("queueDepth").innerText =
+        data.queue_depth;
+
+    document.getElementById("aliveWorkers").innerText =
+        data.alive_workers;
+
+    document.getElementById("completedTasks").innerText =
+        data.completed_tasks;
+
+    document.getElementById("pendingTasks").innerText =
+        data.pending_tasks;
+
+    document.getElementById("runningTasks").innerText =
+        data.running_tasks;
+
+    document.getElementById("deadTasks").innerText =
+        data.dead_tasks;
+}
+
+
+async function loadWorkers() {
+
+    const response =
+        await fetch("http://127.0.0.1:8000/workers");
+
+    const data = await response.json();
+
+    const table =
+        document.getElementById("workerTable");
+
+    table.innerHTML = "";
+
+    data.workers.forEach(worker => {
+
+        table.innerHTML += `
+            <tr>
+                <td>${worker.worker_id}</td>
+                <td>${worker.hostname}</td>
+                <td>${worker.status}</td>
+            </tr>
+        `;
+    });
+}
+
+
+async function refreshDashboard() {
+
+    await loadStats();
+    await loadWorkers();
+}
+
+refreshDashboard();
+
+setInterval(
+    refreshDashboard,
+    3000
+);
+
+</script>
+
+</body>
+</html>

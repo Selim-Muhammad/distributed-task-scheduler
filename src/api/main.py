@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from src.api.db.database import Base, engine, SessionLocal
@@ -8,10 +9,19 @@ from src.api.models.task import Task
 from src.api.schemas.task import TaskCreate, TaskResponse
 from src.api.queue.redis_client import redis_client
 
+
 # Create database tables on startup
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Dependency to get a database session
@@ -36,13 +46,13 @@ def health_check():
 @app.post("/tasks", response_model=TaskResponse)
 def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     new_task = Task(
-    id=str(uuid.uuid4()),
-    task_type=task.task_type,
-    priority=task.priority,
-    status="PENDING",
-    retry_count=0,
-    max_retries=task.max_retries
-)
+        id=str(uuid.uuid4()),
+        task_type=task.task_type,
+        priority=task.priority,
+        status="PENDING",
+        retry_count=0,
+        max_retries=task.max_retries
+    )
 
     # Save task to PostgreSQL
     db.add(new_task)
@@ -67,6 +77,7 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
 
     return task
+
 
 @app.get("/workers")
 def get_workers():
