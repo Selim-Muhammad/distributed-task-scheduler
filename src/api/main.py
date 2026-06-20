@@ -2,6 +2,8 @@ import uuid
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from src.api.db.database import Base, engine, SessionLocal
@@ -22,6 +24,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount(
+    "/static",
+    StaticFiles(directory="src/api/static"),
+    name="static"
+)
+
+
+@app.get("/dashboard")
+def dashboard():
+    return FileResponse("src/api/static/dashboard.html")
 
 
 # Dependency to get a database session
@@ -74,7 +87,10 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
 
     if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found"
+        )
 
     return task
 
