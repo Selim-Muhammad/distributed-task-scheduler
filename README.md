@@ -137,6 +137,26 @@ PostgreSQL    Redis (Valkey)
 
 ---
 
+## Screenshots
+
+### Dashboard
+
+![Dashboard](screenshots/dashboard.png)
+
+### Tasks
+
+![Tasks](screenshots/tasks.png)
+
+### Workers
+
+![Workers](screenshots/workers.png)
+
+### Submit Task
+
+![Submit Task](screenshots/submit-task.png)
+
+---
+
 ## Future Improvements
 
 * Deploy scheduler as a managed background worker
