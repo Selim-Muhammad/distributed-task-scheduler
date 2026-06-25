@@ -1,145 +1,159 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Distributed Task Scheduler Dashboard</title>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 30px;
-        }
-
-        .card {
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-        }
-
-        h1 {
-            margin-bottom: 30px;
-        }
-
-        .metric {
-            font-size: 24px;
-            font-weight: bold;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-
-        th, td {
-            padding: 10px;
-        }
-    </style>
+    <title>Distributed Task Scheduler</title>
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
 <body>
 
-<h1>Distributed Task Scheduler Dashboard</h1>
+<div class="app">
 
-<div class="card">
-    <h2>System Statistics</h2>
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="logo">⚡</div>
+            <div>
+                <h2>Task Scheduler</h2>
+                <p>Distributed System</p>
+            </div>
+        </div>
 
-    <p>Queue Depth: <span id="queueDepth" class="metric">-</span></p>
-    <p>Alive Workers: <span id="aliveWorkers" class="metric">-</span></p>
-    <p>Completed Tasks: <span id="completedTasks" class="metric">-</span></p>
-    <p>Pending Tasks: <span id="pendingTasks" class="metric">-</span></p>
-    <p>Running Tasks: <span id="runningTasks" class="metric">-</span></p>
-    <p>Dead Tasks: <span id="deadTasks" class="metric">-</span></p>
+        <nav>
+            <button class="nav-item active" onclick="showPage('dashboard')">Dashboard</button>
+            <button class="nav-item" onclick="showPage('tasks')">Tasks</button>
+            <button class="nav-item" onclick="showPage('workers')">Workers</button>
+            <button class="nav-item" onclick="showPage('submit')">Submit Task</button>
+        </nav>
+    </aside>
+
+    <main class="main">
+
+        <header class="topbar">
+            <div>
+                <h1>Distributed Task Scheduler</h1>
+                <p>Live monitoring dashboard for task queues, workers, retries, and system health.</p>
+            </div>
+
+            <div class="system-status">
+                <span class="status-dot"></span>
+                API Online
+            </div>
+        </header>
+
+        <section id="dashboard" class="page active-page">
+            <div class="grid stats-grid">
+                <div class="card metric-card">
+                    <p>Queue Depth</p>
+                    <h2 id="queueDepth">-</h2>
+                </div>
+
+                <div class="card metric-card">
+                    <p>Alive Workers</p>
+                    <h2 id="aliveWorkers">-</h2>
+                </div>
+
+                <div class="card metric-card">
+                    <p>Completed Tasks</p>
+                    <h2 id="completedTasks">-</h2>
+                </div>
+
+                <div class="card metric-card">
+                    <p>Dead Tasks</p>
+                    <h2 id="deadTasks">-</h2>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header">
+                    <h2>Recent Tasks</h2>
+                    <span>Last 20 tasks</span>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task ID</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Retries</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentTasksTable"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tasks" class="page">
+            <div class="card">
+                <div class="section-header">
+                    <h2>All Recent Tasks</h2>
+                    <span>Stored in PostgreSQL</span>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task ID</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Retries</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasksTable"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="workers" class="page">
+            <div class="card">
+                <div class="section-header">
+                    <h2>Worker Nodes</h2>
+                    <span>Heartbeat-based worker discovery</span>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Worker ID</th>
+                            <th>Hostname</th>
+                            <th>Status</th>
+                            <th>Last Seen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workersTable"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="submit" class="page">
+            <div class="card form-card">
+                <div class="section-header">
+                    <h2>Submit Task</h2>
+                    <span>Create a new queued task</span>
+                </div>
+
+                <label>Task Type</label>
+                <input id="taskTypeInput" value="image_resize">
+
+                <label>Priority</label>
+                <input id="priorityInput" type="number" value="10">
+
+                <label>Max Retries</label>
+                <input id="maxRetriesInput" type="number" value="2">
+
+                <button class="primary-button" onclick="submitTask()">Submit Task</button>
+
+                <p id="submitMessage"></p>
+            </div>
+        </section>
+
+    </main>
+
 </div>
 
-<div class="card">
-    <h2>Workers</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Worker ID</th>
-                <th>Hostname</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-
-        <tbody id="workerTable">
-        </tbody>
-    </table>
-</div>
-
-<script>
-
-async function loadStats() {
-
-    const response =
-        await fetch("http://127.0.0.1:8000/stats");
-
-    const data = await response.json();
-
-    document.getElementById("queueDepth").innerText =
-        data.queue_depth;
-
-    document.getElementById("aliveWorkers").innerText =
-        data.alive_workers;
-
-    document.getElementById("completedTasks").innerText =
-        data.completed_tasks;
-
-    document.getElementById("pendingTasks").innerText =
-        data.pending_tasks;
-
-    document.getElementById("runningTasks").innerText =
-        data.running_tasks;
-
-    document.getElementById("deadTasks").innerText =
-        data.dead_tasks;
-}
-
-
-async function loadWorkers() {
-
-    const response =
-        await fetch("http://127.0.0.1:8000/workers");
-
-    const data = await response.json();
-
-    const table =
-        document.getElementById("workerTable");
-
-    table.innerHTML = "";
-
-    data.workers.forEach(worker => {
-
-        table.innerHTML += `
-            <tr>
-                <td>${worker.worker_id}</td>
-                <td>${worker.hostname}</td>
-                <td>${worker.status}</td>
-            </tr>
-        `;
-    });
-}
-
-
-async function refreshDashboard() {
-
-    await loadStats();
-    await loadWorkers();
-}
-
-refreshDashboard();
-
-setInterval(
-    refreshDashboard,
-    3000
-);
-
-</script>
+<script src="/static/js/dashboard.js"></script>
 
 </body>
 </html>

@@ -81,6 +81,31 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     return new_task
 
 
+# List recent tasks
+@app.get("/tasks")
+def list_tasks(db: Session = Depends(get_db)):
+    tasks = (
+        db.query(Task)
+        .order_by(Task.id.desc())
+        .limit(20)
+        .all()
+    )
+
+    return {
+        "tasks": [
+            {
+                "id": task.id,
+                "task_type": task.task_type,
+                "priority": task.priority,
+                "status": task.status,
+                "retry_count": task.retry_count,
+                "max_retries": task.max_retries
+            }
+            for task in tasks
+        ]
+    }
+
+
 # Get a task by ID
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: str, db: Session = Depends(get_db)):
