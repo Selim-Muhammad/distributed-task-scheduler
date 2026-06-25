@@ -42,6 +42,8 @@ async function loadStats() {
     document.getElementById("queueDepth").innerText = data.queue_depth;
     document.getElementById("aliveWorkers").innerText = data.alive_workers;
     document.getElementById("completedTasks").innerText = data.completed_tasks;
+    document.getElementById("pendingTasks").innerText = data.pending_tasks;
+    document.getElementById("runningTasks").innerText = data.running_tasks;
     document.getElementById("deadTasks").innerText = data.dead_tasks;
 }
 
