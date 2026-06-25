@@ -86,7 +86,7 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
 def list_tasks(db: Session = Depends(get_db)):
     tasks = (
         db.query(Task)
-        .order_by(Task.id.desc())
+        .order_by(Task.created_at.desc())
         .limit(20)
         .all()
     )
