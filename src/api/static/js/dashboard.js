@@ -35,6 +35,24 @@ function shortId(id) {
 }
 
 
+function formatLastSeen(lastSeen) {
+    const lastSeenSeconds = Number(lastSeen);
+    const nowSeconds = Date.now() / 1000;
+    const secondsAgo = Math.floor(nowSeconds - lastSeenSeconds);
+
+    if (secondsAgo < 5) {
+        return "Just now";
+    }
+
+    if (secondsAgo < 60) {
+        return `${secondsAgo} seconds ago`;
+    }
+
+    const minutesAgo = Math.floor(secondsAgo / 60);
+    return `${minutesAgo} minutes ago`;
+}
+
+
 async function loadStats() {
     const response = await fetch(`${API_BASE_URL}/stats`);
     const data = await response.json();
@@ -55,13 +73,28 @@ async function loadWorkers() {
     const table = document.getElementById("workersTable");
     table.innerHTML = "";
 
-    data.workers.forEach(worker => {
+    if (data.workers.length === 0) {
+        table.innerHTML = `
+            <tr>
+                <td colspan="4" class="empty-state">
+                    No active workers detected
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    data.workers.forEach((worker, index) => {
         table.innerHTML += `
             <tr>
-                <td class="task-id">${shortId(worker.worker_id)}</td>
+                <td>
+                    <strong>Worker ${index + 1}</strong>
+                    <br>
+                    <span class="task-id">${shortId(worker.worker_id)}</span>
+                </td>
                 <td>${worker.hostname}</td>
                 <td>${createStatusBadge(worker.status)}</td>
-                <td>${Number(worker.last_seen).toFixed(0)}</td>
+                <td>${formatLastSeen(worker.last_seen)}</td>
             </tr>
         `;
     });
@@ -72,11 +105,8 @@ async function loadTasks() {
     const response = await fetch(`${API_BASE_URL}/tasks`);
     const data = await response.json();
 
-    const recentTasksTable =
-        document.getElementById("recentTasksTable");
-
-    const tasksTable =
-        document.getElementById("tasksTable");
+    const recentTasksTable = document.getElementById("recentTasksTable");
+    const tasksTable = document.getElementById("tasksTable");
 
     recentTasksTable.innerHTML = "";
     tasksTable.innerHTML = "";
@@ -99,33 +129,66 @@ async function loadTasks() {
 
 
 async function submitTask() {
-    const taskType =
-        document.getElementById("taskTypeInput").value;
+    const submitButton = document.querySelector(".primary-button");
+    const message = document.getElementById("submitMessage");
 
-    const priority =
-        Number(document.getElementById("priorityInput").value);
+    const taskType = document.getElementById("taskTypeInput").value.trim();
+    const priority = Number(document.getElementById("priorityInput").value);
+    const maxRetries = Number(document.getElementById("maxRetriesInput").value);
 
-    const maxRetries =
-        Number(document.getElementById("maxRetriesInput").value);
+    if (taskType === "") {
+        message.innerText = "Task type cannot be empty.";
+        message.className = "error-message";
+        return;
+    }
 
-    const response = await fetch(`${API_BASE_URL}/tasks`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            task_type: taskType,
-            priority: priority,
-            max_retries: maxRetries
-        })
-    });
+    if (priority < 1 || priority > 10) {
+        message.innerText = "Priority must be between 1 and 10.";
+        message.className = "error-message";
+        return;
+    }
 
-    const data = await response.json();
+    if (maxRetries < 0 || maxRetries > 10) {
+        message.innerText = "Max retries must be between 0 and 10.";
+        message.className = "error-message";
+        return;
+    }
 
-    document.getElementById("submitMessage").innerText =
-        `Task submitted: ${shortId(data.id)}`;
+    submitButton.disabled = true;
+    submitButton.innerText = "Submitting...";
+    message.innerText = "";
 
-    await refreshDashboard();
+    try {
+        const response = await fetch(`${API_BASE_URL}/tasks`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                task_type: taskType,
+                priority: priority,
+                max_retries: maxRetries
+            })
+        });
+
+        const data = await response.json();
+
+        message.innerText = `Task submitted successfully: ${shortId(data.id)}`;
+        message.className = "success-message";
+
+        document.getElementById("taskTypeInput").value = "image_resize";
+        document.getElementById("priorityInput").value = 10;
+        document.getElementById("maxRetriesInput").value = 2;
+
+        await refreshDashboard();
+
+    } catch (error) {
+        message.innerText = "Failed to submit task.";
+        message.className = "error-message";
+    }
+
+    submitButton.disabled = false;
+    submitButton.innerText = "Submit Task";
 }
 
 
